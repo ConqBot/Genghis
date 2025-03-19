@@ -2,7 +2,7 @@
 
 # **Genghis**
 
-generals.io bot backend by [@quantumbagel](https://github.com/quantumbagel)
+not stable • generals.io bot backend by [@quantumbagel](https://github.com/quantumbagel) • the spiritual successor to Hannibal
 </div>
 
 Please note I'm still laying out this project and that a first version of code might take some time.
@@ -25,6 +25,7 @@ Please note I'm still laying out this project and that a first version of code m
 3. Game Management
   - GeneralsClient - handles mainloop, creates necessary classes, etc.
   - LocalClient - same thing, but run locally
+  - SeleniumClient - ?
 
 
 4. GUI
