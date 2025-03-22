@@ -13,7 +13,7 @@ Please note I'm still laying out this project and that a first version of code m
    - Game - takes a Grid, can step through with a dictionary of {'username': Action} and returns a list of observations for the next turn, can get Observations from a 'username' perspective. Also tracks current statistics.
    - Action - contains information about a move, namely row, col, direction, split. If all = None, then the move is a pass
    - Replay - takes a grid or a file path, can get turn by half-turn number
-   - Observation - stores data relative to a player, including priority, visible cells, army count, etc.
+   - Observation - stores modified mask data relative to a player, including priority, visible cells, army count, etc.
 
 2. Bot API
   - Bot - move command (based on Observation) and reset the bot, as well as ID. Also, has functionality for chat commands via bot.commands
