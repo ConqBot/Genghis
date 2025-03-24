@@ -123,7 +123,7 @@ WEBSOCKET_URL = "wss://server/socket.io/?EIO=4&transport=websocket"
 WEIRD_CONSTANT = "sd09fjdZ03i0ejwi_changeme"
 
 class GeneralsClient:
-    def __init__(self, user_id, bot, server=Literal["bot", "us", "eu"]):
+    def __init__(self, user_id, bot, server=Literal["bot", "us", "eu"], join_as=Literal["human", "bot"]):
         self.user_id = user_id
         self.bot = bot
         self.socket = None
@@ -134,7 +134,8 @@ class GeneralsClient:
         self.in_game = None  # unknown until API request
         self.ping_interval = None
         self.lock = asyncio.Lock()
-        self._atomic_query_number = 421
+        self.join_as = join_as
+        self._atomic_query_number = 1
         self.username = None
         self._has_checked_username = False
         self.pending_queries = {}
@@ -152,11 +153,16 @@ class GeneralsClient:
 
     @property
     def atomic_query_number(self):
-        query = self._atomic_query_number
+        # Certain queries follow the following format
+        # SEND 42xyz (e.g. 429 or 4211)
+        # RECV 43xyz (e.g. 439 or 4311)
         self._atomic_query_number += 1
-        if self._atomic_query_number == 430:
-            self._atomic_query_number = 421  # request drops above this value for some reason?
-        return query
+        return int("42"+str(self._atomic_query_number))
+
+    @staticmethod
+    def _expected_return_atomic_query(query):
+        return int("43" + str(query)[2:])
+
 
     async def _update_session_id(self):
         async with aiohttp.ClientSession() as session:
@@ -173,7 +179,7 @@ class GeneralsClient:
 
 
     async def connect(self):
-        self._atomic_query_number = 421
+        self._atomic_query_number = 1
         await self._update_session_id()
         self.session = aiohttp.ClientSession()
         self.socket = await self.session.ws_connect(f"{self.websocket_url}&sid={self.sid}", ssl=False)
@@ -217,6 +223,8 @@ class GeneralsClient:
                 completed.append(key)
         for key in completed:
             self.pending_queries.pop(key, None)
+        if not len(data):
+            return
         if data[0] == "queue_update":
             self.queue = data[1]
         if data[0] == "pre_game_start":
@@ -276,8 +284,8 @@ class GeneralsClient:
             await self._send(prefix=request_prefix, message=query)
 
     async def join_private_lobby(self, room_id):
-        assert self.username is not None and self._has_checked_username,\
-            "Username not set before attempting to join lobby."
+        # assert self.username is not None and self._has_checked_username,\
+        #     "Username not set before attempting to join lobby."
         condition = lambda p, d: d[0] in ["queue_update", "error_join_queue"]
         prefix, data = await self.query(
             request_prefix=42,
@@ -298,7 +306,7 @@ class GeneralsClient:
 
     async def get_username(self):
         query_number = self.atomic_query_number
-        condition = lambda p, d: p - 10 == query_number
+        condition = lambda p, d: p == self._expected_return_atomic_query(query_number)
         self._has_checked_username = True
         prefix, data = await self.query(
             request_prefix=query_number,
@@ -306,14 +314,26 @@ class GeneralsClient:
             condition=condition
         )
         self.username = data[0]
+
+        if self.username:
+            assert not (self.username.startswith("[Bot]") and self.join_as == "human"
+                or self.join_as == "human" and not self.username.startswith("[Bot]")), f"Failed to connect as role {self.join_as!r}: username is {self.username!r}"
+
         return self.username
 
     async def set_username(self, username):
-        return await self.query(
-            request_prefix=42,
-            query=["set_username", self.user_id, username, WEIRD_CONSTANT, None, None],
-            condition=lambda p, d: d[0] == "error_set_username"
-        )
+        if self.join_as == "human":
+            return await self.query(
+                request_prefix=42,
+                query=["set_username", self.user_id, username, WEIRD_CONSTANT, None, None],
+                condition=lambda p, d: d[0] == "error_set_username"
+            )
+        else:
+            return await self.query(
+                request_prefix=42,
+                query=["set_username", self.user_id, username],
+                condition=lambda p, d: d[0] == "error_set_username"
+            )
 
     async def join_1v1_queue(self):
         self.queueing_for = "1v1"
@@ -394,9 +414,9 @@ class GeneralsClient:
     async def stars_and_rank(self):
         pass
 
-    async def is_supporter(self):
-
-        pass
+    # async def is_supporter(self):
+    #
+    #     pass
 
     async def get_notifications(self):
         """
@@ -416,18 +436,18 @@ class GeneralsClient:
         )
         pass
 
-    async def set_custom_host(self, host):
-        pass
+    # async def set_custom_host(self, host):
+    #     pass
 
-    async def set_custom_team(self, team):
-        assert self.queueing_for.startswith("custom"),\
-            "This function only works when you are queuing for a custom game."
-
-        return await self.query(
-            request_prefix=self.atomic_query_number,
-            query=["set_custom_team"],
-            condition=None
-        )
+    # async def set_custom_team(self, team):
+    #     assert self.queueing_for.startswith("custom"),\
+    #         "This function only works when you are queuing for a custom game."
+    #
+    #     return await self.query(
+    #         request_prefix=self.atomic_query_number,
+    #         query=["set_custom_team", self.queueing_for.replace("custom[", "").replace("]"), team, WEIRD_CONSTANT, None, None],
+    #         condition=None
+    #     )
 
     async def recover_account(self, email):
 
@@ -443,8 +463,21 @@ class GeneralsClient:
         :return:
         """
         await self._send(message=[])
+
+    async def mod(self):
+        # Returns muted, <disabled>, <warning>,
+        await self._send(prefix=421, message=["check_moderation", self.user_id])
+
+    async def play(self, mode):
+        await self._send(prefix=422, message=["play", self.user_id, WEIRD_CONSTANT, mode, None])
+
+    async def ping_worker(self):
+        await self._send(prefix=42, message=["ping_worker"])
+
+    async def ping_server(self):
+        await self._send(prefix=42, message=["ping_server"])
 # "X8xuc1_ba"
-g = GeneralsClient(user_id="", server="us", bot=None)
+g = GeneralsClient(user_id="", server="bot", bot=None, join_as="bot")
 
 async def main():
     await g.connect()
@@ -459,5 +492,16 @@ async def main():
                 arguments[i] = True
             elif arg.lower() == "false":
                 arguments[i] = False
-        print(await getattr(g, command[0])(*arguments))
+            elif arg.lower() == "null":
+                arguments[i] = None
+            elif arg.isdigit():
+                arguments[i] = int(arg)
+        try:
+            print(await getattr(g, command[0])(*arguments))
+        except AttributeError:
+            recombined = [command[0]]
+            recombined.extend(arguments)
+
+            print(command, recombined, arguments)
+            await g._send(prefix=421, message=recombined)
 asyncio.get_event_loop().run_until_complete(main())
