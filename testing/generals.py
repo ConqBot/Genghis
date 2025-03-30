@@ -304,13 +304,15 @@ class GeneralsClient:
             condition=None  # For some reason, there is no confirmation that the leave succeeded
         )
 
-    async def get_username(self):
+    async def get_username(self, id=None):
+        if id is None:
+            id = self.user_id
         query_number = self.atomic_query_number
         condition = lambda p, d: p == self._expected_return_atomic_query(query_number)
         self._has_checked_username = True
         prefix, data = await self.query(
             request_prefix=query_number,
-            query=["get_username", self.user_id],
+            query=["get_username", id],
             condition=condition
         )
         self.username = data[0]
@@ -381,6 +383,14 @@ class GeneralsClient:
             query=["surrender"],
             condition=condition
         )
+
+    async def is_supporter(self, id=None):
+        query_number = self.atomic_query_number
+        condition = lambda p, d: p == self._expected_return_atomic_query(query_number)
+        if id is None:
+            id = self.user_id
+        return await self.query(request_prefix=query_number, query=["is_supporter", id], condition=condition)
+
 
     async def change_private_game_settings(self):
 
@@ -468,16 +478,32 @@ class GeneralsClient:
         # Returns muted, <disabled>, <warning>,
         await self._send(prefix=421, message=["check_moderation", self.user_id])
 
-    async def play(self, mode):
-        await self._send(prefix=422, message=["play", self.user_id, WEIRD_CONSTANT, mode, None])
+    # async def play(self, mode):
+    #     await self._send(prefix=422, message=["play", self.user_id, WEIRD_CONSTANT, mode, None])
 
     async def ping_worker(self):
         await self._send(prefix=42, message=["ping_worker"])
 
     async def ping_server(self):
         await self._send(prefix=42, message=["ping_server"])
+
+    async def set_raw_username(self, id, name, human=True):
+        if human:
+            return await self.query(
+                request_prefix=42,
+                query=["set_username", id, name, WEIRD_CONSTANT, None, None],
+                condition=lambda p, d: d[0] == "error_set_username"
+            )
+        else:
+            return await self.query(
+                request_prefix=42,
+                query=["set_username", id, name],
+                condition=lambda p, d: d[0] == "error_set_username"
+            )
+
+
 # "X8xuc1_ba"
-g = GeneralsClient(user_id="", server="bot", bot=None, join_as="bot")
+g = GeneralsClient(user_id="bcn_is_the_best", server="us", bot=None, join_as="human")
 
 async def main():
     await g.connect()
@@ -494,6 +520,8 @@ async def main():
                 arguments[i] = False
             elif arg.lower() == "null":
                 arguments[i] = None
+            elif arg.lower() == "nbk":
+                arguments[i] = WEIRD_CONSTANT
             elif arg.isdigit():
                 arguments[i] = int(arg)
         try:
@@ -504,4 +532,6 @@ async def main():
 
             print(command, recombined, arguments)
             await g._send(prefix=421, message=recombined)
-asyncio.get_event_loop().run_until_complete(main())
+if __name__ == "__main__":
+
+    asyncio.get_event_loop().run_until_complete(main())

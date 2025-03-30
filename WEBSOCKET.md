@@ -8,9 +8,16 @@ a guide by [@quantumbagel](https://github.com/quantumbagel)
 
 # Sending
 
-Type A = send prefix = 42, does not send explicit response (e.g. cancel, stars_and_rank, join_1v1)
 
-Type B = send message prefix = 42xyz, return prefix = 43xyz as return value (e.g. get_username, is_supporter)
+## Some notes on protocol
+Type A = send prefix = 42, does not send explicit response (e.g. cancel, stars_and_rank, join_1v1). 42xyz can also be sent, but 42 will still be the response.
+
+Type B = send message prefix = 42xyz, return prefix = 43xyz as return value (e.g. get_username, is_supporter). 
+
+`NBK` = This peculiar constant: `sd09fjdZ03i0ejwi_changeme`
+
+
+
 
 
 ## User Information
@@ -64,7 +71,7 @@ Type B = send message prefix = 42xyz, return prefix = 43xyz as return value (e.g
 | clear_moves  | None                                                   | None                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Remove all queued moves (see `undo_move` for logic). Completely stops server-side attackIndex from incrementing.                                                                                                                                                                                                                                                                                                                                                      | None    | A    | Yes      |
 | surrender    | None                                                   | None                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Forfeit the current game.                                                                                                                                                                                                                                                                                                                                                                                                                                             | None    | A    | Yes      |
 | chat_message | `[channel] [message] ""`                               | `channel`: the chat channel to send the message to. This is provided by the `game_start` message in most cases, or generated as `chat_custom_queue` + the lobby ID for custom games. `message`: the message to send. Note that you MUST send an empty string as the third argument, NOT `null`. I honestly have zero clue what the point of the third argument is lmfao                                                                                                           | Send the message `message` in the chat channel `channel`                                                                                                                                                                                                                                                                                                                                                                                                              | None    | A    | Yes      |
-| leave_game   | None                                                   | None                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Leave the current game (only applies to spectators)                                                                                                                                                                                                                                                                                                                                                                                                                   | None    | A    | Yes      |
+| leave_game   | None                                                   | None                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Leave the current game (only applies to spectators and players after the game is over)                                                                                                                                                                                                                                                                                                                                                                                | None    | A    | Yes      |
 | rematch      | None                                                   | None                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Send the request to have a rematch (after the game is done)                                                                                                                                                                                                                                                                                                                                                                                                           | None    | A    | Yes      | 
 
 ## Utilities
@@ -94,11 +101,103 @@ Type B = send message prefix = 42xyz, return prefix = 43xyz as return value (e.g
 
 
 # Receiving
-## notify
-## pre_game_start
-## game_start
+| Name           | When is it sent?                                                          | Format             | Description                                                                      | What does it do?                                                              |
+|----------------|---------------------------------------------------------------------------|--------------------|----------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| notify         | When the server wants to display a notification to the client             | `[subject] [body]` | `subject`: the subject of the notification. `body`: the body of the notification | Asks the client to send a notification with subject `subject` and body `body` |
+| pre_game_start | When the server wants to notify the client is 1 second away from starting | No other data      | None                                                                             | Asks the client to display notice that the game is about to start.            |
+| game_start | When the game has started and the server wants to send information about the game, including usernames, modifiers, chat channel, replay ID, custom map, swamp positions, and light positions. | `{
+
+## game_start example format
+```
+{ 
+   "playerIndex": 0,
+    "playerColors": [
+      0,
+      2
+    ],
+    "replay_id": "Z1mtzONO7",
+    "chat_room": "game_1743023103283t3mujse6uRw1LiSAAjaD",
+    "usernames": [
+      "HannibalAI",
+      "Skibidious"
+    ],
+    "teams": [
+      1,
+      2
+    ],
+    "game_type": "custom",
+    "swamps": [],
+    "lights": [],
+    "options": {  # Note that these options mirror the formatting from the public games modifiers in REST.md
+      "map": null,
+      "width": 0.3,
+      "height": 0.3,
+      "game_speed": null,
+      "modifiers": [],
+      "mountain_density": null,
+      "city_density": null,
+      "lookout_density": null,
+      "observatory_density": null,
+      "swamp_density": null,
+      "desert_density": null,
+      "max_players": null,
+      "city_fairness": null,
+      "spawn_fairness": null,
+      "defeat_spectate": null,
+      "spectate_chat": null,
+      "public": null,
+      "chatRecordingDisabled": null,
+      "eventId": null
+    }
+  }
+  ```
+  
+  
 ## game_update
+[
+  "game_update",
+  {
+    "scores": [
+      {
+        "total": 62,
+        "tiles": 1,
+        "i": 0,
+        "color": 0,
+        "dead": false,
+        "warn_afk": true
+      },
+      {
+        "total": 62,
+        "tiles": 1,
+        "i": 1,
+        "color": 2,
+        "dead": false,
+        "warn_afk": true
+      }
+    ],
+    "turn": 118,
+    "attackIndex": 0,
+    "generals": [
+      88,
+      -1
+    ],
+    "map_diff": [
+      90,
+      1,
+      62,
+      595
+    ],
+    "cities_diff": [
+      1
+    ],
+    "deserts_diff": [
+      0
+    ]
+  },
+  null
+]
 ## game_over
+
 ## disable_rematch
 ## rematch_update
 ## ping_tile
@@ -111,6 +210,14 @@ Type B = send message prefix = 42xyz, return prefix = 43xyz as return value (e.g
 ## removed_from_queue
 ## chat_message
 ## game_lost
+[
+  "game_lost",
+  {
+    "surrender": true,
+    "afk": true
+  },
+  null
+]
 ## afk_warning
 ## game_won
 ## server_down
