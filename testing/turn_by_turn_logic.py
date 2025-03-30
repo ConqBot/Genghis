@@ -137,7 +137,6 @@ class Game:
                                self.board_armies, self.board_owners)
 
     @staticmethod
-    @njit
     def _update_armies_with_indices(board_armies, general_indices, owned_indices, city_owned_indices):
         # Update generals
         for idx in general_indices:
@@ -256,6 +255,6 @@ if __name__ == "__main__":
     game = Game(25, 25, 2)
     game.display_board(size=25)
 
-    move_time, turn_time = game.benchmark(10000)
+    move_time, turn_time = game.benchmark(50000)
     print("\nAfter benchmark:")
     game.display_board(size=25)
