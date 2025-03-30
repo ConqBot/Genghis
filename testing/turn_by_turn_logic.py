@@ -99,7 +99,6 @@ class Game:
         if not start_coords:
             return []
 
-        #print(self.display_board(25))
         valid_moves = _generate_valid_moves_numba(
             player,
             np.array(start_coords, dtype=np.int16),
@@ -192,19 +191,19 @@ class Game:
         else:
             return f"[{' '+str(owner) if owner != -1 else '. '}:{armies:2d}]"
 
-    def display_board(self, size=5):
+    def display_board(self):
         print(f"\nTurn {self.turn} - Priority Player: {self.priority_player}")
-        print("-" * (size * 7 + 1))
+        print("-" * (self.width * 7 + 1))
         print("    ", end="")
-        for x in range(size):
+        for x in range(self.width):
             print(f"  {x:2d}  ", end="")
-        print("\n    " + "-" * (size * 6))
-        for y in range(size):
-            row = [self._format_tile(x, y) for x in range(size)]
+        print("\n    " + "-" * (self.width * 6))
+        for y in range(self.height):
+            row = [self._format_tile(x, y) for x in range(self.height)]
             print(f"{y:2d} | {' '.join(row)}")
-        print("-" * (size * 7 + 1))
+        print("-" * (self.width * 7 + 1))
 
-    def benchmark(self, num_turns=100, seed=42):
+    def benchmark(self, num_turns=100, seed=42, display_every=None):
         print(f"\nRunning benchmark for {num_turns} turns with seed {seed}...")
 
 
@@ -218,6 +217,8 @@ class Game:
 
         start_time = time.time()
         for turn in range(num_turns):
+            if display_every is not None and turn % display_every == 0:
+                self.display_board()
             moves = []
             for player in range(self.num_players):
                 player_moves = self.generate_valid_moves(player)
@@ -253,8 +254,8 @@ def _generate_valid_moves_numba(player, start_coords, adjacent_indices,
 
 if __name__ == "__main__":
     game = Game(25, 25, 2)
-    game.display_board(size=25)
+    game.display_board()
 
-    move_time, turn_time = game.benchmark(50000)
+    move_time, turn_time = game.benchmark(50000, 1000, 10000)
     print("\nAfter benchmark:")
-    game.display_board(size=25)
+    game.display_board()
