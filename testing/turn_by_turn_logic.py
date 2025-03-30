@@ -3,7 +3,6 @@ from enum import Enum
 import random
 import time
 
-from line_profiler import profile
 from numba import njit
 
 
