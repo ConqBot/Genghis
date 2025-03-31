@@ -83,7 +83,7 @@ class Grid:
 
     @property
     def dimensions(self):
-        return self.width, self.height
+        return self.height, self.width
 
 
 

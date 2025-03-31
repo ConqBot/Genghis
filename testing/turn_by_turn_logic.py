@@ -5,6 +5,8 @@ import time
 
 from numba import njit
 
+from testing.grid_maker import Grid
+
 
 class TileType(Enum):
     PLAIN = 0
@@ -12,39 +14,22 @@ class TileType(Enum):
     CITY = 2
     GENERAL = 3
 
-class Grid:
-    # Do generator stuff here
-    def __init__(self, width, height, players):
-        self.width = width
-        self.height = height
-        self.num_players = players
-        self.grid = np.zeros((self.height, self.width))
-        self.mountain_density = 0.5
-        self.city_density = 0.5
-
-    def _place_mountains(self):
-
-        pass
-
-    def _place_cities(self):
-        pass
-
-
-
-
-class Game:
-    def __init__(self, width, height, num_players):
-        self.width = width
-        self.height = height
-        self.num_players = num_players
+class LocalGame:
+    def __init__(self, grid: Grid):
+        self.grid = grid
         self.turn = 0
+        self.height = self.grid.height
+        self.width = self.grid.width
+        self.num_players = self.grid.num_players
 
-        self.board_types = np.zeros((height, width), dtype=np.uint8)
-        self.board_armies = np.zeros((height, width), dtype=np.uint16)
-        self.board_owners = np.full((height, width), -1, dtype=np.int8)
+        self.board_types = np.zeros(self.grid.dimensions, dtype=np.uint8)
+        self.board_armies = np.zeros(self.grid.dimensions, dtype=np.uint16)
+        self.board_owners = np.full(self.grid.dimensions, -1, dtype=np.int8)
         self.adjacent_indices = self._precompute_adjacents()
         self._setup_board()
-        self.priority_player = random.randint(0, num_players - 1)
+        self.priority_player = random.randint(0, self.grid.num_players - 1)
+
+
 
     def _precompute_adjacents(self):
         adjacents = np.full((self.height, self.width, 4, 2), -1, dtype=np.int16)
@@ -115,17 +100,22 @@ class Game:
                    board_armies, board_owners):
         attack_armies = board_armies[start_y, start_x] - 1
         defend_armies = board_armies[end_y, end_x]
+        is_attacking_same = board_owners[end_y, end_x] == player
 
         board_armies[start_y, start_x] = 1
 
-        if attack_armies > defend_armies:
-            board_armies[end_y, end_x] = attack_armies - defend_armies
-            board_owners[end_y, end_x] = player
-        elif attack_armies < defend_armies:
-            board_armies[end_y, end_x] = defend_armies - attack_armies
+        if is_attacking_same:
+            board_armies[end_y, end_x] += attack_armies
         else:
-            board_armies[end_y, end_x] = 0
-            board_owners[end_y, end_x] = player
+
+            if attack_armies > defend_armies:
+                board_armies[end_y, end_x] = attack_armies - defend_armies
+                board_owners[end_y, end_x] = player
+            elif attack_armies < defend_armies:
+                board_armies[end_y, end_x] = defend_armies - attack_armies
+            else:
+                board_armies[end_y, end_x] = 0
+                board_owners[end_y, end_x] = player
         return True
 
     def make_move(self, start_x, start_y, end_x, end_y, player):
@@ -253,9 +243,9 @@ def _generate_valid_moves_numba(player, start_coords, adjacent_indices,
 
 
 if __name__ == "__main__":
-    game = Game(25, 25, 2)
+    game = LocalGame(Grid(width=25, height=25, players=2, uniform_city_density=0.02, uniform_mountain_density=0.15))
     game.display_board()
 
-    move_time, turn_time = game.benchmark(50000, 1000, 10000)
+    move_time, turn_time = game.benchmark(100, 1000, 1)
     print("\nAfter benchmark:")
     game.display_board()
