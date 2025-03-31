@@ -1,9 +1,10 @@
-<div align="center">
+<div align="center" >
 
-# **Genghis**
+# <img src="gio.png" alt="" width="20" /> **Genghis**
 
 no code written • generals.io bot backend by [@quantumbagel](https://github.com/quantumbagel) • the spiritual successor to Hannibal • [websocket API docs](WEBSOCKET.md) • [REST API docs](WEBSOCKET.md) 
 </div>
+
 
 Please note I'm still laying out this project and that a first version of code might take some time.
 
