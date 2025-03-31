@@ -114,7 +114,7 @@ class IO_QueueState:
             self.number_players = queue["numPlayers"]
 
 
-
+# banned account example: oH3mz8ZFw
 US_SERVER = "ws.generals.io"
 BOT_SERVER = "botws.generals.io"
 EU_SERVER = "eu.generals.io"
