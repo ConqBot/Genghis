@@ -6,25 +6,18 @@ from enum import Enum
 import random
 import time
 
-from numba import njit
+from line_profiler import profile
 
-from __init__ import TileType
+from __init__ import EFFECT_DISABLE_RECENT_MOVE, EFFECT_RECENT_MOVE_END_POSITION, EFFECT_RECENT_MOVE_START_POSITION, \
+    PLAYER_COLORS_HEX, TileType
 from genghis.game.move import Move
 from grid import Grid
 
-PLAYER_COLORS_HEX =["red:ff0000", "lightblue:2792FF", "green:008000", "teal:008080", "orange:FA8C01",
-                    "pink:f032e6", "purple:800080", "maroon:9B0101", "yellow:B3AC32", "brown:9A5E24",
-                    "blue:1031FF", "purpleblue:594CA5", "yellowgreen:85A91C", "lightred:FF6668",
-                    "lightpurple:B47FCA", "lightbrown:B49971"]  # Ripped from gio.js
-
-EFFECT_RECENT_MOVE_START_POSITION = "\033[51m"
-EFFECT_RECENT_MOVE_END_POSITION = "\033[7m"
-EFFECT_DISABLE_RECENT_MOVE = "\033[27m\033[54m"
 
 
 def color(index=None, hex=None):
      if index is not None:
-         color = PLAYER_COLORS_HEX[index].split(":")[1]
+         color = PLAYER_COLORS_HEX[index]
          hexint = int(color, 16)
      else:
          hexint = int(hex, 16)
@@ -66,12 +59,11 @@ class LocalGame:
 
 
     @staticmethod
-    @njit
     def _is_valid_move(start_x, start_y, end_x, end_y, player,
                        board_owners, board_armies, board_types):
-        if (board_owners[start_x, start_y] != player or
-                board_armies[start_x, start_y] < 2 or
-                board_types[end_x, end_y] == TileType.MOUNTAIN.value):
+        if (board_owners[start_y, start_x] != player or
+                board_armies[start_y, start_x] < 2 or
+                board_types[end_y, end_x] == TileType.MOUNTAIN.value):
 
             return False
         return True
@@ -79,14 +71,15 @@ class LocalGame:
     def generate_valid_moves(self, player):
         owned = self.grid.owners == player
         enough_armies = self.grid.armies >= 2
-        valid_starts = np.where(owned & enough_armies)
-        start_coords = list(zip(valid_starts[0], valid_starts[1]))
-        if not start_coords:
+        y_starts, x_starts = np.where(owned & enough_armies)
+        start_coords = list(zip(y_starts, x_starts))
+        if len(start_coords) == 0:
             return []
+
 
         valid_moves = _generate_valid_moves_numba(
             player,
-            np.array(start_coords, dtype=np.int16),
+            start_coords,
             self.adjacent_indices,
             self.grid.owners,
             self.grid.armies,
@@ -99,32 +92,47 @@ class LocalGame:
         return classified_valid_moves
 
     @staticmethod
-    @njit
     def _make_move(start_x, start_y, end_x, end_y, player, split,
                    board_armies, board_owners, board_types):
         if split:
-            attack_armies = board_armies[start_x, start_y] // 2  # Split rounds down
+            attack_armies = board_armies[start_y, start_x] // 2  # Split rounds down
         else:
-            attack_armies = board_armies[start_x, start_y] - 1
-        defend_armies = board_armies[end_x, end_y]
-        is_attacking_same = board_owners[end_x, end_y] == player
+            attack_armies = board_armies[start_y, start_x] - 1
+        defend_armies = board_armies[end_y, end_x]
+        is_attacking_same = board_owners[end_y, end_x] == player
+        captured_general = None
 
-        board_armies[start_x, start_y] -= attack_armies
+        board_armies[start_y, start_x] -= attack_armies
 
         if is_attacking_same:
-            board_armies[end_x, end_y] += attack_armies
+            board_armies[end_y, end_x] += attack_armies
         else:
 
             if attack_armies > defend_armies:
-                board_armies[end_x, end_y] = attack_armies - defend_armies
-                board_owners[end_x, end_y] = player
-                if board_types[end_x, end_y] == TileType.GENERAL.value:  # If taking a general, they become a city.
-                    board_types[end_x, end_y] = TileType.CITY.value
+                board_armies[end_y, end_x] = attack_armies - defend_armies
+
+                if board_types[end_y, end_x] == TileType.GENERAL.value:  # If taking a general, they become a city.
+                    board_types[end_y, end_x] = TileType.CITY.value
+                    captured_general = board_owners[end_y, end_x]
+                board_owners[end_y, end_x] = player
+
             elif attack_armies < defend_armies:
-                board_armies[end_x, end_y] = defend_armies - attack_armies
+                board_armies[end_y, end_x] = defend_armies - attack_armies
             else:
-                board_armies[end_x, end_y] = 0
-                board_owners[end_x, end_y] = player
+                board_armies[end_y, end_x] = 0
+                board_owners[end_y, end_x] = player
+
+        if captured_general is not None:  # This move captured a general
+            captured_mask = board_owners == captured_general
+            flattened_mask = captured_mask.flatten()
+            flat_owners = board_owners.flatten()
+            orig_shape = board_owners.shape
+            flat_owners[flattened_mask] = player
+            board_owners[:] = flat_owners.reshape(orig_shape)
+            flat_armies = board_armies.flatten()
+            flat_armies[flattened_mask] = (flat_armies[flattened_mask]+1)//2
+            board_armies[:] = flat_armies.reshape(orig_shape)
+
         return True
 
     def make_move(self, start_x, start_y, end_x, end_y, player, split):
@@ -133,7 +141,6 @@ class LocalGame:
             return False
         return self._make_move(start_x, start_y, end_x, end_y, player, split,
                                self.grid.armies, self.grid.owners, self.grid.types)
-
 
 
     def update_armies(self):
@@ -174,7 +181,6 @@ class LocalGame:
 
 
 
-
     def process_turn(self, moves=None):
         if moves is None:
             moves = []  # Everyone CAN pass if they want to
@@ -189,8 +195,8 @@ class LocalGame:
 
                 if player_id == current_priority:
                     self.make_move(start_x, start_y, end_x, end_y, player_id, split)
-                    self.most_recent_start_move_squares.append([start_y, start_x])
-                    self.most_recent_end_move_squares.append([end_y, end_x])
+                    self.most_recent_start_move_squares.append((start_y, start_x))
+                    self.most_recent_end_move_squares.append((end_y, end_x))
 
             current_priority = (current_priority + 1) % self.num_players
 
@@ -243,10 +249,10 @@ class LocalGame:
             #formatted_row = [f"{colors[y][x]}[{str(item):<{max_length}}]" for x, item in enumerate(row)]
             def l(x, item):
                 return col_widths[x]+(len(item)-len(replace_ansi(item)))
-            def get_square_effect(x,y):
-                if [x,y] in self.most_recent_start_move_squares:
+            def get_square_effect(x, y):
+                if (y, x) in self.most_recent_start_move_squares:
                     return EFFECT_RECENT_MOVE_START_POSITION
-                elif [x,y] in self.most_recent_end_move_squares:
+                elif (y, x) in self.most_recent_end_move_squares:
                     return EFFECT_RECENT_MOVE_END_POSITION
 
                 return ""
@@ -327,27 +333,26 @@ class LocalGame:
 
         return move_gen_time, turn_process_time
 
-@njit
+
 def _generate_valid_moves_numba(player, start_coords, adjacent_indices,
                                 board_owners, board_armies, board_types):
     moves = []
     for i in range(len(start_coords)):
         start_y, start_x = start_coords[i]
         for j in range(4):
-            end_y, end_x = adjacent_indices[start_x, start_y, j]
-            if end_y == -1:
-                continue
-            if (board_owners[start_x, start_y] == player and
-                    board_armies[start_x, start_y] >= 2 and
-                    board_types[end_x, end_y] != TileType.MOUNTAIN.value):
+            end_y, end_x = adjacent_indices[start_y, start_x, j]
+            if end_y != -1 and board_owners[start_y, start_x] == player and \
+                    board_armies[start_y, start_x] >= 2 and \
+                    board_types[end_y, end_x] != TileType.MOUNTAIN.value:
                 moves.append((player, start_x, start_y, end_x, end_y))
     return moves
+
 
 
 if __name__ == "__main__":
     game = LocalGame(Grid(width=18, height=20, players=16, uniform_city_density=0.02, uniform_mountain_density=0.15))
     game.display_board()
 
-    move_time, turn_time = game.benchmark(1000, 1000, 1)
+    move_time, turn_time = game.benchmark(100000, 1000, 1000)
     print("\nAfter benchmark:")
     game.display_board()

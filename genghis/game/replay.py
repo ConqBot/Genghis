@@ -1,7 +1,59 @@
-from genghis.game.game import LocalGame
-from genghis.game.grid import ReplayGrid
-from genghis.replays.deserialize import Replay
+import time
 
+import numpy as np
+from line_profiler import profile
+from numpy._typing import NDArray
+
+from __init__ import TileType
+from genghis.game.game import LocalGame
+from genghis.game.grid import Grid
+from genghis.replays.deserialize import Replay, convert_coordinates
+
+
+class ReplayGrid(Grid):
+    """Grid initialized from a replay object."""
+
+    def __init__(self, replay: Replay):
+        """
+        Initialize grid from a replay.
+
+        Args:
+            replay: Replay object containing game state
+        """
+        self.replay = replay
+
+        square_conversion = {
+            TileType.CITY: replay.city_mask,
+            TileType.MOUNTAIN: replay.mountain_mask,
+            TileType.GENERAL: replay.general_mask
+        }
+
+        dimensions = (replay.height, replay.width)
+
+        # Initialize grid arrays
+        self.types: NDArray[np.uint8] = np.full(dimensions, TileType.PLAIN, dtype=np.uint8)
+        self.armies: NDArray[np.uint16] = np.full(dimensions, 0, dtype=np.uint16)
+        self.owners: NDArray[np.int8] = np.full(dimensions, -1, dtype=np.int8)
+        self.lights: NDArray[np.bool] = np.full(dimensions, False, dtype=np.bool)
+
+        # Set terrain types
+        for square_type, mask in square_conversion.items():
+            self.types[mask] = square_type
+
+        # Set initial army values
+        city_positions = np.where(replay.city_mask)
+        self.armies[city_positions] = replay.city_army_mask[city_positions]
+        self.armies[replay.general_mask] = 1
+
+        # Set initial ownership
+        for player in replay.players:
+            x, y = convert_coordinates(player.general, replay.width, replay.height)
+            self.owners[x, y] = player.index
+
+        # Set grid properties
+        self.num_players = np.sum(self.types == TileType.GENERAL)
+        self.width = self.types.shape[1]
+        self.height = self.types.shape[0]
 
 class ReplayGame(LocalGame):
     def __init__(self, grid: ReplayGrid):
@@ -14,7 +66,6 @@ class ReplayGame(LocalGame):
     @property
     def turn(self):
         return self._turn
-
 
     @turn.setter
     def turn(self, new_turn):
@@ -39,7 +90,6 @@ class ReplayGame(LocalGame):
 
             for turn in range(starting_turn, new_turn):
                 if turn in moves:  # There is a move for this turn, pass em in
-                    print(moves[turn])
                     self.process_turn(moves[turn])
                     self.history.append((self.grid.types, self.grid.armies, self.grid.owners))
                 else:
@@ -53,11 +103,15 @@ class ReplayGame(LocalGame):
 r = ReplayGrid(Replay(filename="../replays/vQKnym89k.gior"))
 print(r)
 
+
+r = ReplayGrid(Replay(filename="../replays/vQKnym89k.gior"))
+print(r)
+
 rg = ReplayGame(r)
 
-print(rg.display_board())
 
-for i in range(10):
-    rg.turn += 10
-    print(rg.turn)
-    print(rg.display_board())
+print(rg.display_board())
+t = time.time()
+rg.turn = 95*2
+print(rg.display_board())
+print(time.time() - t)
