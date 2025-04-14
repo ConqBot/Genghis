@@ -77,7 +77,6 @@ class ReplayGame(LocalGame):
         if len(self.history) > new_turn:
             self.types, self.armies, self.owners = self.history[new_turn]
         else:  # We can't retrieve the cached gamestate, which means that we need to simulate forward
-            simulator_types, simulator_armies, simulator_owners = self.history[-1]
             starting_turn = len(self.history) - 1  # The turn ID of the gamestate
 
             self._turn = starting_turn  # Set turn for move simulator
@@ -96,22 +95,3 @@ class ReplayGame(LocalGame):
                     self.process_turn()
                     self.history.append((self.grid.types, self.grid.armies, self.grid.owners))
 
-
-
-
-
-r = ReplayGrid(Replay(filename="../replays/vQKnym89k.gior"))
-print(r)
-
-
-r = ReplayGrid(Replay(filename="../replays/vQKnym89k.gior"))
-print(r)
-
-rg = ReplayGame(r)
-
-
-print(rg.display_board())
-t = time.time()
-rg.turn = 95*2
-print(rg.display_board())
-print(time.time() - t)

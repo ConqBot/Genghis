@@ -326,9 +326,13 @@ top 10 results (or less) based on the query. Also includes
 From the generals.io source:
 
 NEW_MAPS_CACHE_HOURS: 1 / 60, (every minute)
+
 HOT_MAPS_CACHE_HOURS: .05, (every 3 minutes)
+
 TOP_MAPS_CACHE_HOURS: 5 / 60, (every 5 minutes)
+
 BEST_MAPS_CACHE_HOURS: 24, (every day)
+
 RANDOM_MAPS_CACHE_HOURS: 1 / 60 / 6, (every 10 seconds)
 
 #### Map formatting
@@ -372,16 +376,22 @@ IDK other return codes simply because I am not a supporter :O
 #### Arguments
 
 `title: title of map`
+
 `description: description of map`
+
 `width: width of map`
+
 `height: height of map`
+
 `map: the actual map data, formatted like the GET /api/map request`
+
 `user_id: user id of map creator`
 
 #### Returns
 
 `500 if width * height is not equal to the number of tiles`
 TBA
+
 
 
 ### POST /api/mapToFile

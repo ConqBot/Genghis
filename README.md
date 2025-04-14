@@ -2,7 +2,7 @@
 
 # <img src="gio.png" alt="" width="20" /> **Genghis**
 
-no code written • generals.io bot backend by [@quantumbagel](https://github.com/quantumbagel) • the spiritual successor to Hannibal • [websocket API docs](WEBSOCKET.md) • [REST API docs](WEBSOCKET.md) 
+currently unusable • generals.io bot backend by [@quantumbagel](https://github.com/quantumbagel) • the spiritual successor to Hannibal • [websocket API docs](docs/WEBSOCKET.md) • [REST API docs](docs/WEBSOCKET.md) 
 </div>
 
 

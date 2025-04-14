@@ -289,7 +289,7 @@ class GeneralsClient:
         condition = lambda p, d: d[0] in ["queue_update", "error_join_queue"]
         prefix, data = await self.query(
             request_prefix=42,
-            query=["join_private", room_id, self.user_id, WEIRD_CONSTANT, None],
+            query=["join_private", room_id, "hannibal", WEIRD_CONSTANT, None],
             condition=condition
         )
         if data[0] == "error_join_queue":
@@ -317,9 +317,9 @@ class GeneralsClient:
         )
         self.username = data[0]
 
-        if self.username:
-            assert not (self.username.startswith("[Bot]") and self.join_as == "human"
-                or self.join_as == "human" and not self.username.startswith("[Bot]")), f"Failed to connect as role {self.join_as!r}: username is {self.username!r}"
+        # if self.username:
+        #     assert not (self.username.startswith("[Bot]") and self.join_as == "human"
+        #         or self.join_as == "human" and not self.username.startswith("[Bot]")), f"Failed to connect as role {self.join_as!r}: username is {self.username!r}"
 
         return self.username
 
@@ -341,7 +341,7 @@ class GeneralsClient:
         self.queueing_for = "1v1"
         return await self.query(
             request_prefix=42,
-            query=["join_1v1", self.user_id, WEIRD_CONSTANT, None, None],
+            query=["join_1v1", "rxUB3XM0_", WEIRD_CONSTANT, None, None],
             condition=None  # For some reason, there is no confirmation that the 1v1 join succeeded
         )
 
@@ -503,11 +503,13 @@ class GeneralsClient:
 
 
 # "X8xuc1_ba"
-g = GeneralsClient(user_id="bcn_is_the_best", server="us", bot=None, join_as="human")
+g = GeneralsClient(user_id="oH3mz8ZFw", server="us", bot=None, join_as="human")
 
 async def main():
     await g.connect()
     await g.get_username()
+    await g._send(prefix=42, message=["play", "rxUB3XM0_", "sd09fjdZ03i0ejwi_changeme", None, None])
+    await g._send(prefix=42, message=["join_private", "defg", "hannibal", "sd09fjdZ03i0ejwi_changeme", None, None])
     while True:
         command = (await ainput("> ")).split(" ")
         if command == [""]:
@@ -524,14 +526,14 @@ async def main():
                 arguments[i] = WEIRD_CONSTANT
             elif arg.isdigit():
                 arguments[i] = int(arg)
-        try:
-            print(await getattr(g, command[0])(*arguments))
-        except AttributeError:
-            recombined = [command[0]]
-            recombined.extend(arguments)
+            elif arg.lower() == "uid":
+                arguments[i] = g.user_id
 
-            print(command, recombined, arguments)
-            await g._send(prefix=421, message=recombined)
+        recombined = [command[0]]
+        recombined.extend(arguments)
+
+        print(command, recombined, arguments)
+        await g._send(prefix=421, message=recombined)
 if __name__ == "__main__":
 
     asyncio.get_event_loop().run_until_complete(main())
