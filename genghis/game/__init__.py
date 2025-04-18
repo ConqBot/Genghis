@@ -2,6 +2,8 @@ from enum import IntEnum
 
 
 class TileType(IntEnum):
+    FOG_OBSTACLE = -2
+    FOG = -1
     PLAIN = 0
     MOUNTAIN = 1
     CITY = 2

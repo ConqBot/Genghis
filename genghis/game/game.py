@@ -325,6 +325,37 @@ class LocalGame:
         return move_gen_time, turn_process_time
 
 
+class OnlineGame(LocalGame):
+    """
+    Online game. Basically just patches data and creates observations from data into the internal Grid class.
+    Mostly taking strakam's IO_GameState code for this one
+    """
+
+    def patch(self, data):
+        self.turn = data["turn"]
+        self.map = self.apply_diff(self.map, data["map_diff"])
+        self.cities = self.apply_diff(self.cities, data["cities_diff"])
+        self.generals = data["generals"]
+        self.scores = data["scores"]
+        if "stars" in data:
+            self.stars = data["stars"]
+
+    def apply_diff(self, old: list[int], diff: list[int]) -> list[int]:
+        i = 0
+        new: list[int] = []
+        while i < len(diff):
+            if diff[i] > 0:  # matching
+                new.extend(old[len(new) : len(new) + diff[i]])
+            i += 1
+            if i < len(diff) and diff[i] > 0:  # applying diffs
+                new.extend(diff[i + 1 : i + 1 + diff[i]])
+                i += diff[i]
+            i += 1
+        return new
+
+
+
+
 if __name__ == "__main__":
     game = LocalGame(Grid(width=18, height=20, players=16, uniform_city_density=0.02, uniform_mountain_density=0.15))
     game.display_board()
